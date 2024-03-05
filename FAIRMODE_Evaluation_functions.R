@@ -12,6 +12,8 @@ ProgramInitialization <- function(){
   
   if(length(new.packages)) install.packages(NewPackages) # Install required packages
   
+  invisible(sapply(ListofPackages, library, character.only = TRUE)) # Load packages
+  
   # Plotting theme for target diagram:
   ThemeAnalysisTarget <<- theme_bw() +
     theme(
@@ -764,7 +766,7 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
   if (SavePlot){
     # Name of output file: 
     if (OutputFile == FALSE){
-      FileName <- paste0(OutputDir, "TargetPlot_", Pol, ".png")
+      FileName <- paste0(OutputDir, "SummaryReport_", Pol, ".png")
     } else {
       FileName <- paste0(OutputDir, OutputFile)
     }

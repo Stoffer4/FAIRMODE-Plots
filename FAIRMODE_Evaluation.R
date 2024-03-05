@@ -11,7 +11,7 @@ ProgramInitialization() # Load packages, set correct working directory, and set 
 
 Pol        <- "PM2.5" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
-OutputFile <- "Test.png" # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
+OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
 
 # Read and format time series data if necessary:
