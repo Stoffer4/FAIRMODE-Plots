@@ -9,13 +9,18 @@ ProgramInitialization() # Load packages, set correct working directory, and set 
 
 ## Setup: ####
 
-Pol      <- "NO2" # "NO2", "O3", "PM2.5", "PM10"
-SavePlot <- TRUE # TRUE: Saves the plots
+Pol        <- "PM2.5" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
+OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
+OutputFile <- "Test.png" # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
+SavePlot   <- TRUE # TRUE: Saves the plots
 
 # Read and format time series data if necessary:
 Data <- ReadDELTAData(Pol)
 
 Data <- FormatDELTAData(Data, Pol)
+
+# Compute the daily maximum of 8H rolling averages (only for O3):
+if (Pol == "O3") Data <- DailyMaxAvg8h(Data, GroupedCols = c("Station", "StationInfo"), mod, obs, date, Pol)
 
 ## MQI and other statistics: ####
 
@@ -26,10 +31,10 @@ StatRep <- FAIRMODEStat(Data, U_Par, Pol)
 
 PlotPoint <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 100 stations)
 
-TargetPlot(StatRep, PlotPoint, NStations, SavePlot)
+TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
 
 ## Summary report: ####
 
 PointSize <- 1.5 # Size of points in each subplot of the summary report
 
-SummaryReport(StatRep, Pol, PointSize, SavePlot)
+SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)

@@ -10,6 +10,7 @@ ProgramInitialization <- function(){
   library(patchwork)
   library(cowplot)
   library(dplyr)
+  library(zoo)
   library(stringr)
   library(data.table)
   library(tidyr)
@@ -41,24 +42,6 @@ ProgramInitialization <- function(){
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank()
     )
-  
-  # Plotting theme for some time series:
-  UserThemeTimeSeries <<- theme_bw() +
-    theme(
-      text                  = element_text(size = 14),
-      plot.title            = element_text(size = 14, hjust = 0.5), # Center plot title
-      legend.box.background = element_rect(fill = alpha("white", 0.6), linewidth = 0.5),
-      legend.background     = element_rect(fill = alpha("white", 0.6)),
-      legend.key            = element_rect(fill = alpha("white", 0.6)),
-      legend.text.align     = 0, # Left align legend labels
-      legend.title          = element_blank(),
-      legend.position       = "bottom",
-      panel.grid.major      = element_blank(),
-      panel.grid.minor      = element_blank()
-    )
-  
-  NO2unitfact <<- (14 + 2*16)/24 # Conversion factor for NO2
-  O3unitfact  <<- (3*16)/24 # Conversion factor for O3
   
   ## FAIRMODE uncertainty parameters and percentile (quantile) values for all pollutants (FAIRMODE 2022, table 7):
   alpha <- c(0.2, 0.79, 0.25, 0.50) # alpha**2 is the fraction of the uncertainty around the reference value which is non-proportional
@@ -165,17 +148,10 @@ ReadDELTAData <- function(Pol){
 # with enough data coverage:
 FormatDELTAData <- function(Data, Pol){
   
-  # If neither "PM10" nor "PM2.5" have been chosen, use an empty string for "PMMethod"
-  if (Pol %in% c("PM10", "PM2.5")){
-    PMMethod <- PMMethod
-  } else {
-    PMMethod <- ""
-  }
-  
   ResString <<- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot: The default temporal resolution is "hourly" but when choosing
   # "SM200" or "LVS" for PM*, this is changed to "daily". For ozone, this is again changed
   
-  # If the pollutant is either "PM10" or "PM2.5", we need to choose a column for the measured values based on "PMMethod"
+  # If the pollutant is either "PM10" or "PM2.5": 
   if (Pol %in% c("PM10", "PM2.5")){
     
     ResString <<- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
@@ -233,6 +209,52 @@ FormatDELTAData <- function(Data, Pol){
   return(Data2 %>% ungroup())
   
 } # End "FormatData()"
+
+# Function to compute daily maximum of 8H rolling averages (only for O3):
+DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date, Pol){
+  
+  if (Pol == "O3"){
+    
+    ResString <<- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
+    
+    # Function to determine the mean if at least 6 concentrations (out of 8) are non-NA:
+    mean2 <- function(x) {
+      if (sum(!is.na(x)) >= 6){ # If at least 6 concentrations are non-NA:
+        mean(x, na.rm = TRUE)
+      } else {
+        NA
+      }
+    }
+    
+    # Determine the 8H backward rolling average of measured and modeled concentrations:
+    Data2 <- Data %>% group_by(across(all_of(GroupedCols))) %>%
+      mutate(obs_8HourMean = rollapply({{obs}}, width = 8, FUN = mean2, partial = TRUE,
+                                       align = "right"),
+             mod_8HourMean = rollapply({{mod}}, width = 8, FUN = mean2, partial = TRUE,
+                                       align = "right"))
+    
+    Data2 <- Data2 %>% mutate(date2 = floor_date({{date}}, unit = "day")) # Create a daily date column
+    
+    # Determine the data coverage for each day and filter for days with at least 75% data coverage:
+    DataCoverage <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
+      summarize(DataCoverage = sum(!is.na({{obs}}))/n()) %>% arrange(desc(DataCoverage))
+    
+    Data2 <- merge(Data2, DataCoverage, all.x = TRUE) # Merge "Data2" with "DataCoverage"
+    
+    Data2 <- Data2 %>% filter(DataCoverage >= 0.75) # Filter for days which have at least 75% data coverage
+    
+    # Determine the maximum 8-hour mean for both measured and modeled concentrations:
+    Data2 <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>% summarize(obs = max(obs_8HourMean), mod = max(mod_8HourMean)) %>%
+      mutate(date = date2) %>%
+      select(-date2)
+    
+  } else {
+    stop("Only applicable for ozone!")
+  }
+  
+  return(Data2)
+  
+} # End of "DailyMaxAvg8h()"
 
 # Function to compute FAIRMODE statistics:
 FAIRMODEStat <- function(Data, U_Par, Pol){
@@ -326,7 +348,7 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
 } # End "FAIRMODEStatistics()"
 
 # Function to create a target plot:
-TargetPlot <- function(StatRep, PlotPoint, NStations, SavePlot){
+TargetPlot <- function(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot){
   
   if ((PlotPoint == 2) & (NStations > 60)) stop("Too many points for PlotPoint = 2! Set it equal to 1 instead")
   
@@ -442,7 +464,12 @@ TargetPlot <- function(StatRep, PlotPoint, NStations, SavePlot){
   
   # Save the plot:
   if (SavePlot){
-    FileName <- paste0("FAIRMODE_Evaluation_Plots/TargetPlot_", Pol, ".png")
+    # Name of output file: 
+    if (OutputFile == FALSE){
+      FileName <- paste0(OutputDir, "TargetPlot_", Pol, ".png")
+    } else {
+      FileName <- paste0(OutputDir, OutputFile)
+    }
     print(paste0("Writing the file: ", FileName))
     ggsave(Plot, filename = FileName, height = 6.5, width = 6.5, unit = "in")
   }
@@ -450,7 +477,7 @@ TargetPlot <- function(StatRep, PlotPoint, NStations, SavePlot){
 } # End "TargetPlot()"
 
 # Function to create a summary report:
-SummaryReport <- function(StatRep, Pol, PointSize, SavePlot){
+SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot){
   
   # Upper-right text box in report:
   if (StatRep$MQI$NPointsMQI90 == 1) {
@@ -741,9 +768,14 @@ SummaryReport <- function(StatRep, Pol, PointSize, SavePlot){
   
   # Save the combined plot (using cowplot):
   if (SavePlot){
-    FileName <- paste0("SummaryReport_", StatRep$Parameters$Pol, ".png")
+    # Name of output file: 
+    if (OutputFile == FALSE){
+      FileName <- paste0(OutputDir, "TargetPlot_", Pol, ".png")
+    } else {
+      FileName <- paste0(OutputDir, OutputFile)
+    }
     print(paste0("Writing the file: ", FileName))
-    save_plot(CombinedPlot, filename = paste0("FAIRMODE_Evaluation_Plots/", FileName), nrow = 1.75, base_asp = 2)
+    save_plot(CombinedPlot, filename = FileName, nrow = 1.75, base_asp = 2)
   }
   
 } # End "SummaryReport()"
