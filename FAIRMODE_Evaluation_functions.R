@@ -3,20 +3,14 @@
 # Function to load packages, set correct working directory, and define a common plotting theme:
 ProgramInitialization <- function(){
   
-  ## Loading packages:
-  library(ggplot2)
-  library(RColorBrewer)
-  library(ggprism)
-  library(patchwork)
-  library(cowplot)
-  library(dplyr)
-  library(zoo)
-  library(stringr)
-  library(data.table)
-  library(tidyr)
-  library(lubridate)
-  library(ncdf4)
-  library(DescTools)
+  # List of required packages: 
+  ListofPackages <- c("ggplot2", "RColorBrewer", "ggprism", "patchwork", "cowplot", "dplyr", "zoo", "stringr", "data.table", 
+                      "tidyr", "lubridate", "ncdf4", "DescTools")
+  
+  # Packages not installed: 
+  NewPackages <- ListofPackages[!(ListofPackages %in% installed.packages()[ , "Package"])]
+  
+  if(length(new.packages)) install.packages(NewPackages) # Install required packages
   
   # Plotting theme for target diagram:
   ThemeAnalysisTarget <<- theme_bw() +
