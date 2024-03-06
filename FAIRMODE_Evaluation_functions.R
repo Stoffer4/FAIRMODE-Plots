@@ -60,7 +60,7 @@ ProgramInitialization <- function(){
   
 } # End "ProgramInitialization()"
 
-ReadDELTAData <- function(Pol){
+ReadDELTAData <- function(){
   
   ## Observed concentrations:
   
@@ -85,8 +85,8 @@ ReadDELTAData <- function(Pol){
   Obs <- Tmp2 %>% select(all_of(Columns)) %>%
     tidyr::unite("date", c(year, month, day, hour), sep = "_") %>%
     mutate(date = ymd_h(date)) %>%
-    select(date, Station, {{Pol}}) %>%
-    mutate(!!Pol := na_if(.data[[Pol]], -999)) # Convert -999 (representing NAs) to NA
+    select(date, Station, c(NO2, O3, PM2.5, PM10)) %>% # Select important pollutants
+    mutate(across(.cols = c(NO2, O3, PM2.5, PM10), .fns = ~ na_if(., -999))) # Convert -999 for all species (representing NAs) to NA
   
   ## Modeled concentrations:
   
@@ -107,7 +107,7 @@ ReadDELTAData <- function(Pol){
   ColNames      <- AscToChar(ColNamesASCII[-length(ColNamesASCII)]) # Return a character for each ASCII code (integer) supplied (we also
   # delete the last whitespace)
   ColNames      <- unlist(str_split(ColNames, " ")) # Convert into character vector
-  ColNames <- str_replace(ColNames, "PM25", "PM2.5") # Change PM2.5 column header to the correct name format
+  ColNames      <- str_replace(ColNames, "PM25", "PM2.5") # Change PM2.5 column header to the correct name format
   
   Mod <- vector(mode = "list", length = length(VarNames)) # List to store the modeled data.frame of each station
   cnt <- 1 # Counter
@@ -120,7 +120,7 @@ ReadDELTAData <- function(Pol){
     
     Mod[[cnt]] <- Tmp %>% mutate(Station = ii) %>% # Create a station column
       mutate(date = DateVector) %>% # Create a date column
-      select(date, Station, {{Pol}}) # Select only relevant pollutant
+      select(date, Station, c(NO2, O3, PM2.5, PM10)) # Select only relevant pollutants
     
     cnt <- cnt + 1
   }
@@ -133,9 +133,9 @@ ReadDELTAData <- function(Pol){
   
   Data <- full_join(Mod, Obs, by = c("Station", "date"), suffix = c("_DELTA", "_Obs")) %>%
     filter(Station %in% Stations) %>% # Filter for stations where modeled data is available
-    # Rename the two concentration columns by transforming each suffix to a prefix:
-    rename_with(.fn = ~paste0(str_remove(., pattern = paste0({{Pol}}, "_")), "_", {{Pol}}),
-                .cols = contains({{Pol}})) %>%
+    # Rename the concentration columns by transforming each suffix to a prefix:
+    rename_with(.fn = function(x) {sapply(str_split(x, "_"), function(y) paste0(y[2], "_", y[1]))},
+                .cols = contains(c("NO2", "O3", "PM2.5", "PM10"))) %>%
     mutate(StationInfo = "DELTA") # Placeholder
   
 } # End "ReadDELTAData()"
