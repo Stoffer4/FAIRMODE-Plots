@@ -144,41 +144,47 @@ ReadDELTAData <- function(){
 # with enough data coverage:
 FormatDELTAData <- function(Data, Pol){
   
+  # If the observed variable does not exist, terminate the program:
+  if (!paste0("Obs_", Pol) %in% names(Data)){
+    stop(paste0(Pol, " measurements do not exist for the given stations (file) for the given period!!!"))
+  }
+  
   ResString <<- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot: The default temporal resolution is "hourly" but when choosing
   # "SM200" or "LVS" for PM*, this is changed to "daily". For ozone, this is again changed
+  
+  Data2 <- Data %>% select(date, mod = paste0("DELTA_", Pol), obs = paste0("Obs_", Pol), Station, StationInfo) %>%
+    mutate(date2 = floor_date(date, "day")) # Create a day column
+  
+  StartDate <<- min(Data2$date); EndDate <<- max(Data2$date)
   
   # If the pollutant is either "PM10" or "PM2.5": 
   if (Pol %in% c("PM10", "PM2.5")){
     
     ResString <<- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
     
-    # DELTA tool data also has daily measurement saved in an hourly format:
-      
-      Data2 <- Data %>% select(date, mod = paste0("DELTA_", Pol), obs = paste0("Obs_", Pol), Station, StationInfo)
-      
-      Data2 <- Data2 %>% mutate(date = floor_date(date, "day")) %>%
-        group_by(date, Station, StationInfo) %>%
-        summarize(obs = mean(obs, na.rm = TRUE), mod = mean(mod, na.rm = TRUE))
-      
-      StartDate <<- min(Data2$date)
-      EndDate   <<- max(Data2$date)
-      
-  } else { # If not "PM10" or "PM2.5":
+    # Determine the data coverage for each station and each day:
+    DataCoverage <- Data2 %>% group_by(Station, StationInfo, date2) %>%
+      summarize(DataCoverage = sum(!is.na(obs))/n()) %>%
+      arrange(desc(DataCoverage))
     
-    # If the observed variable does not exist, terminate the program:
-    if (!paste0("Obs_", Pol) %in% names(Data)){
-      stop(paste0(Pol, " measurements do not exist for the given stations (file) for the given period!!!"))
-    }
+    # Compute daily means of observed and modeled concentrations:
+    Data2 <- Data2 %>% mutate(date = floor_date(date, "day")) %>%
+      group_by(date, Station, StationInfo) %>%
+      summarize(obs = mean(obs, na.rm = TRUE), mod = mean(mod, na.rm = TRUE))
     
-    Prefix <- "DELTA" # Variable suffix
-      
-    Data2 <- Data %>% select(date, mod = paste0(Prefix, "_", Pol), obs = paste0("Obs_", Pol), Station, StationInfo)
-      
-    StartDate <<- min(Data2$date)
-    EndDate   <<- max(Data2$date)
-      
-  } # End if statement over pollutant type
-  
+    # Join with coverage data and set "obs" for all days for each station with less than 75% observations to NA
+    # (we still need to keep these records for later  computing the data coverage for the number of days in the period):
+    Data2 <- left_join(Data2, DataCoverage, by = c("Station", "StationInfo", "date" = "date2")) %>%
+      mutate(obs = ifelse(DataCoverage < 0.75, NA, obs))
+    
+    # Take appropriate averages for "O3" and take into account the data coverage for averaging:
+  } else if (Pol == "O3"){
+    
+    # Compute the daily maximum of 8H rolling averages:
+    Data2 <- DailyMaxAvg8h(Data = Data2, GroupedCols = c("Station", "StationInfo"), mod, obs, date)
+    
+  } # End if statement over "PM10", "PM2.5", and "O3"
+    
   ## Determine the data coverage of each station and remove stations with less than 75%:
   DataCoverage <- Data2 %>% group_by(Station) %>%
     summarize(DataCoverage = sum(!is.na(obs))/n()) %>% arrange(desc(DataCoverage)) # Data coverage
@@ -207,46 +213,41 @@ FormatDELTAData <- function(Data, Pol){
 } # End "FormatData()"
 
 # Function to compute daily maximum of 8H rolling averages (only for O3):
-DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date, Pol){
+DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date){
   
-  if (Pol == "O3"){
-    
-    ResString <<- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
-    
-    # Function to determine the mean if at least 6 concentrations (out of 8) are non-NA:
-    mean2 <- function(x) {
-      if (sum(!is.na(x)) >= 6){ # If at least 6 concentrations are non-NA:
-        mean(x, na.rm = TRUE)
-      } else {
-        NA
-      }
+  ResString <<- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
+  
+  # Function to determine the mean if at least 6 concentrations (out of 8) are non-NA:
+  mean2 <- function(x) {
+    if (sum(!is.na(x)) >= 6){ # If at least 6 concentrations are non-NA:
+      mean(x, na.rm = TRUE)
+    } else {
+      NA
     }
-    
-    # Determine the 8H backward rolling average of measured and modeled concentrations:
-    Data2 <- Data %>% group_by(across(all_of(GroupedCols))) %>%
-      mutate(obs_8HourMean = rollapply({{obs}}, width = 8, FUN = mean2, partial = TRUE,
-                                       align = "right"),
-             mod_8HourMean = rollapply({{mod}}, width = 8, FUN = mean2, partial = TRUE,
-                                       align = "right"))
-    
-    Data2 <- Data2 %>% mutate(date2 = floor_date({{date}}, unit = "day")) # Create a daily date column
-    
-    # Determine the data coverage for each day and filter for days with at least 75% data coverage:
-    DataCoverage <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
-      summarize(DataCoverage = sum(!is.na({{obs}}))/n()) %>% arrange(desc(DataCoverage))
-    
-    Data2 <- merge(Data2, DataCoverage, all.x = TRUE) # Merge "Data2" with "DataCoverage"
-    
-    Data2 <- Data2 %>% filter(DataCoverage >= 0.75) # Filter for days which have at least 75% data coverage
-    
-    # Determine the maximum 8-hour mean for both measured and modeled concentrations:
-    Data2 <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>% summarize(obs = max(obs_8HourMean), mod = max(mod_8HourMean)) %>%
-      mutate(date = date2) %>%
-      select(-date2)
-    
-  } else {
-    stop("Only applicable for ozone!")
   }
+  
+  # Determine the 8H backward rolling average of measured and modeled concentrations:
+  Data2 <- Data %>% group_by(across(all_of(GroupedCols))) %>%
+    mutate(obs_8HourMean = rollapply({{obs}}, width = 8, FUN = mean2, partial = TRUE,
+                                     align = "right"),
+           mod_8HourMean = rollapply({{mod}}, width = 8, FUN = mean2, partial = TRUE,
+                                     align = "right"))
+  
+  # Determine the data coverage of "obs_8HourMean" for each day:
+  DataCoverage <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
+    summarize(DataCoverage = sum(!is.na(obs_8HourMean))/n()) %>%
+    arrange(desc(DataCoverage))
+  
+  # Join with coverage data and set "obs_8HourMean" for all days for each station with less than 75% observations to NA
+  # (we still need to keep these records for later computing the data coverage for the number of days in the period):
+  Data2 <- merge(Data2, DataCoverage, all.x = TRUE) %>%  # Merge "Data2" with "DataCoverage"
+    mutate(obs_8HourMean = ifelse(DataCoverage < 0.75, NA, obs_8HourMean))
+  
+  # Determine the maximum 8-hour mean for both measured and modeled concentrations for days with at least 75% observations:
+  Data2 <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
+    summarize(obs = max(obs_8HourMean), mod = max(mod_8HourMean)) %>%
+    mutate(date = date2) %>%
+    select(-date2)
   
   return(Data2)
   

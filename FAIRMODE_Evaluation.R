@@ -12,7 +12,7 @@ Data <- ReadDELTAData()
 
 ## Setup: ####
 
-Pol        <- "NO2" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
+Pol        <- "O3" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
@@ -20,9 +20,6 @@ SavePlot   <- TRUE # TRUE: Saves the plots
 ## Format the data: 
 
 Data <- FormatDELTAData(Data, Pol) 
-
-# Compute the daily maximum of 8H rolling averages (only for O3):
-if (Pol == "O3") Data <- DailyMaxAvg8h(Data, GroupedCols = c("Station", "StationInfo"), mod, obs, date, Pol)
 
 ## MQI and other statistics: ####
 
