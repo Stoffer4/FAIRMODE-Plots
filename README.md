@@ -1,5 +1,3 @@
-<img style="float: left;" src="TargetPlot_O3.png">
-
 # FAIRMODE-Plots
 An `R`-toolkit of functions for the evaluation of air quality models. The toolkit is able to create target diagrams and summary reports of analysis/assessment data and is inspired by the `DELTA` tool and the work of `FAIRMODE` in general. 
 
@@ -16,6 +14,8 @@ The script `FAIRMODE_Evaluation.R` contains the typical workflow of creating tar
 # Examples
 
 Demo data with observed and modeled concentrations (from the `DELTA` tool) are available and showcased in the script `Demo.Rmd`. 
+
+<img style="float: left;" src="TargetPlot_O3.png">
 
 # References
 
