@@ -7,9 +7,13 @@ Currently, it is not possible to create target diagrams and summary reports for 
 
 For `FAIRMODE-Plots` to work, a newer version of `R` is required (it has only been tested with version 4.3.3) and the packages `ggplot2`, `RColorBrewer`, `ggprism`, `patchwork`, `cowplot`, `dplyr`, `zoo`, `stringr`, `data.table`, `tidyr`, `lubridate`, `ncdf4`, and `DescTools`.
 
+# Usage
+
+The script `FAIRMODE_Evaluation.R` contains the typical workflow of creating target diagrams and summary reports from data. The functions `ProgramInitialization()`, `ReadDELTAData()`,  `FormatDELTAData()`, `FAIRMODEStat()`, `SummaryReport()`, and `TargetPlot()` are defined in the script `FAIRMODE_Evaluation_functions.R`. 
+
 # Examples
 
-Demo data with observed and modeled concentrations (from the `DELTA` tool) are available and examples are showcased in the script `Demo.Rmd`. 
+Demo data with observed and modeled concentrations (from the `DELTA` tool) are available and showcased in the script `Demo.Rmd`. 
 
 # References
 
