@@ -32,8 +32,6 @@ knitr::kable(head(Data))
 
 ```
 
-## Target plots
-
 We observe that the data has an hourly time resolution. To proceed from here, we selects one of the four pollutants `NO2`, `O3`, `PM2.5`, or `PM10`, format the data, and compute the quality indicators (the target plot for `NO2` is based on the hourly data so no averages is performed for this pollutant): 
 
 ```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
@@ -46,7 +44,9 @@ StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
 ```
 
-We can now specify parameters for the target plot and create the plot, first for `NO2`:  
+## Target plots
+
+We now specify parameters for the target plot and create the plot, first for `NO2`:  
 
 ```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
 
@@ -55,7 +55,7 @@ OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directo
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- FALSE 
 
-TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+TargetPlot(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot)
 ```
 
 For `O3`, `FormatDELTAData()` also computes the daily maximum of 8H rolling averages: 
@@ -68,7 +68,7 @@ Data2   <- FormatDELTAData(Data, Pol, UsePrint)
 
 StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
-TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+TargetPlot(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot)
 ```
 
 For `PM2.5`, `FormatDELTAData()` also computes the daily averages:  
@@ -81,7 +81,7 @@ Data2   <- FormatDELTAData(Data, Pol, UsePrint)
 
 StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
-TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+TargetPlot(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot)
 ```
 
 For `PM10`, `FormatDELTAData()` also computes the daily averages:  
@@ -94,7 +94,7 @@ Data2   <- FormatDELTAData(Data, Pol, UsePrint)
 
 StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
-TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+TargetPlot(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot)
 ```
 
 ## Summary reports

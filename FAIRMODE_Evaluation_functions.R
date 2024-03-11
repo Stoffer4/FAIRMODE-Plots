@@ -152,18 +152,11 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
     stop(paste0(Pol, " measurements do not exist for the given stations (file) for the given period!!!"))
   }
   
-  ResString <<- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot: The default temporal resolution is "hourly" but when choosing
-  # "SM200" or "LVS" for PM*, this is changed to "daily". For ozone, this is again changed
-  
   Data2 <- Data %>% select(date, mod = paste0("DELTA_", Pol), obs = paste0("Obs_", Pol), Station, StationInfo) %>%
     mutate(date2 = floor_date(date, "day")) # Create a day column
   
-  StartDate <<- min(Data2$date); EndDate <<- max(Data2$date)
-  
   # If the pollutant is either "PM10" or "PM2.5": 
   if (Pol %in% c("PM10", "PM2.5")){
-    
-    ResString <<- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
     
     # Determine the data coverage for each station and each day:
     DataCoverage <- Data2 %>% group_by(Station, StationInfo, date2) %>%
@@ -180,7 +173,7 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
     Data2 <- left_join(Data2, DataCoverage, by = c("Station", "StationInfo", "date" = "date2")) %>%
       mutate(obs = ifelse(DataCoverage < 0.75, NA, obs))
     
-    # Take appropriate averages for "O3" and take into account the data coverage for averaging:
+  # Take appropriate averages for "O3" and take into account the data coverage for averaging:
   } else if (Pol == "O3"){
     
     # Compute the daily maximum of 8H rolling averages:
@@ -190,23 +183,27 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
     
   ## Determine the data coverage of each station and remove stations with less than 75%:
   DataCoverage <- Data2 %>% group_by(Station) %>%
-    summarize(DataCoverage = sum(!is.na(obs))/n()) %>% arrange(desc(DataCoverage)) # Data coverage
+    summarize(DataCoverage = sum(!is.na(obs))/n()) %>% 
+    arrange(desc(DataCoverage)) # Data coverage
   
   if (UsePrint){
     print("DataCoverage:")
     print(DataCoverage)
   }
 
-  StationsToKeep <<- DataCoverage %>% filter(DataCoverage > 0.75) %>% pull(Station) # Find stations which have more than 75% data coverage
+  # Find stations which have more than 75% data coverage: 
+  StationsToKeep <- DataCoverage %>% filter(DataCoverage > 0.75) %>% 
+    pull(Station) # Find stations which have more than 75% data coverage
   
   if (UsePrint){
     print("Stations which have 75% data coverage in the given period:")
     print(StationsToKeep)
   }
 
-  Data2 <- Data2 %>% filter(Station %in% StationsToKeep) # Remove stations with less than 75% data coverage:
+  Data2 <- Data2 %>% filter(Station %in% StationsToKeep) %>% # Remove stations with less than 75% data coverage:
+    select(-any_of(c("DataCoverage", "date2"))) # Remove the "DataCoverage" column if it exists
   
-  NStations <<- length(unique(Data2$Station)) # Number of stations
+  NStations <- length(unique(Data2$Station)) # Number of stations
   
   # Stop validation if less than 5 stations:
   if (NStations < 5){
@@ -222,8 +219,6 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
 
 # Function to compute daily maximum of 8H rolling averages (only for O3):
 DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date){
-  
-  ResString <<- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
   
   # Function to determine the mean if at least 6 concentrations (out of 8) are non-NA:
   mean2 <- function(x) {
@@ -286,6 +281,8 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
     Exceedances <- data.frame(NExceedances = NA)
   }
   
+  StationsToKeep <- unique(Data$Station) # Stations to keep
+  
   # Expand the data.frame to include all stations (present for this pollutant) with zero exceedances (necessary for PM2.5):
   Exceedances <- merge(data.frame(Station = StationsToKeep), Exceedances, all.x = TRUE)
   
@@ -323,6 +320,11 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
               MPI_Perc   = (M_Perc - O_Perc)/(U_Par_tmp$beta*U_O_Perc) # MPI for extreme events (exceedances), Janssen and Thunis (2022) Eq. 25 without absolute value
     ) %>% left_join(Exceedances, by = "Station") # Join with "Exceedances" data.frame
   
+  NStations <- nrow(Data2) # Number of stations
+  
+  StartDate <- min(Data$date) # Start date of data
+  EndDate   <- max(Data$date) # End date of data
+  
   Data2 <- Data2 %>% mutate(CRMSE_Norm = CRMSE_Norm*SigmaDomR) # Determine if a point should be placed on the right or left side of the plot
   
   # Compute MQI90 (the 90th percentile value of MQI) according to a linear interpolation (Janssen and Thunis (2022) Eq. (9)):
@@ -345,7 +347,8 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
   
   # Create a nested list with important function output:
   StatRep <- list(Data       = Data2,
-                  MQI        = list(MQI90 = MQI90, Y90 = Y90, NPoints = nrow(Data2), NPointsMQI90 = NPointsMQI90, NPointsY90 = NPointsY90),
+                  MQI        = list(StartDate = StartDate, EndDate = EndDate, MQI90 = MQI90, Y90 = Y90, NPoints = NStations,
+                                    NPointsMQI90 = NPointsMQI90, NPointsY90 = NPointsY90),
                   Parameters = as.list(U_Par_tmp))
   
   return(StatRep)
@@ -353,9 +356,9 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
 } # End "FAIRMODEStatistics()"
 
 # Function to create a target plot:
-TargetPlot <- function(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot){
+TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
   
-  if ((PlotPoint == 2) & (NStations > 60)) stop("Too many points for PlotPoint = 2! Set it equal to 1 instead")
+  if ((PlotPoint == 2) & (StatRep$MQI$NPoints > 60)) stop("Too many points for PlotPoint = 2! Set it equal to 1 instead")
   
   ## Upper-left text box for plot:
   if (StatRep$MQI$NPointsMQI90 == 1) {
@@ -387,9 +390,19 @@ TargetPlot <- function(StatRep, PlotPoint, NStations, OutputDir, OutputFile, Sav
   
   StationsMQI1 <- data.frame(Stations = StationsMQI1, x = 2.2, y = seq(2, by = -0.15, length = length(StationsMQI1)))
   
-  # Plot title:
+  ## Plot title:
+  
+  # Choose the time resolution string: 
+  if (Pol == "NO2"){
+    ResString <- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot
+  } else if (Pol == "O3"){
+    ResString <- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
+  } else if (Pol %in% c("PM2.5", "PM10")){
+    ResString <- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
+  }
+  
   PlotTitle <- paste0("Analysis - ", StatRep$MQI$NPoints, " stations\nSurface ", Pol, " ", ResString, " \n",
-                      round_date(StartDate, unit = "day"), " to ", round_date(EndDate - days(1), unit = "day"))
+                      round_date(StatRep$MQI$StartDate, unit = "day"), " to ", round_date(StatRep$MQI$EndDate, unit = "day"))
   
   # Colour, depending on if the model is fit for purpose (green4) or not (red):
   if ((StatRep$MQI$MQI90 < 1) & (StatRep$MQI$Y90 < 1)){
@@ -400,6 +413,7 @@ TargetPlot <- function(StatRep, PlotPoint, NStations, OutputDir, OutputFile, Sav
   
   # List of shapes for target plot:
   ShapeList <- c("DELTA" = 0)
+  ShapeList <- c(ShapeList, setNames(1:length(unique(StatRep$Data$StationInfo)), unique(StatRep$Data$StationInfo)))
   
   # Choose the point size according to "PlotPoint":
   if (PlotPoint == 1){
@@ -413,7 +427,7 @@ TargetPlot <- function(StatRep, PlotPoint, NStations, OutputDir, OutputFile, Sav
   Shape <- 21:25
   
   FillShapes <- expand_grid(Fill, Shape) # Determine all unique combinations
-  FillShapes <- slice_sample(FillShapes, n = NStations) # Choose "NStations" for each combinations
+  FillShapes <- slice_sample(FillShapes, n = StatRep$MQI$NPoints) # Choose the number of stations for each combinations
   
   ## Create the base target plot:
   Plot <- StatRep$Data %>% ggplot() +
@@ -569,8 +583,8 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
     mutate(Value = abs(Value)) # Convert to absolute value to determine MPI90
   
   ## Compute all temporal MPI90:
-  S90   <- as.integer(NStations*0.9)
-  dist  <- (NStations*0.9 - S90)
+  S90   <- as.integer(StatRep$MQI$NPoints*0.9)
+  dist  <- (StatRep$MQI$NPoints*0.9 - S90)
   
   MPIDF2 <- MPIDF %>% group_by(Stat) %>%
     summarize(MPI90          = sort(Value)[S90] + (sort(Value)[S90+1] - sort(Value)[S90])*dist, # Computing MPI90 from FAIRMODE interpolation
@@ -759,10 +773,19 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
   if (nrow(DashedZoneR) > 0) Plot8 <- Plot8 + geom_point(aes(x = 2 + (max(Xrange) - 2)/2, y = 0), color = "blue", size = PointSize) # Right
   if (nrow(DashedZoneL) > 0) Plot8 <- Plot8 + geom_point(aes(x = -2 + (min(-Xrange) + 2)/2, y = 0), color = "blue", size = PointSize) # Left
   
-  # Modified plot title for better justification:
+  # Choose the time resolution string: 
+  if (Pol == "NO2"){
+    ResString <- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot
+  } else if (Pol == "O3"){
+    ResString <- "8h moving average daily maximum [\u03BCgm\u207B\u00B3]" # Change target plot header string
+  } else if (Pol %in% c("PM2.5", "PM10")){
+    ResString <- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
+  }
+  
+  ## Modified plot title for better justification:
   PlotTitle <- paste0("               ", "Analysis - ", StatRep$MQI$NPoints,
                       " stations\n               Surface ", StatRep$Parameters$Pol, " ", ResString, " \n               ",
-                      round_date(StartDate, unit = "day"), " to ", round_date(EndDate - days(1), unit = "day"))
+                      round_date(StatRep$MQI$StartDate, unit = "day"), " to ", round_date(StatRep$MQI$EndDate, unit = "day"))
   
   # Combine all plots with patchwork:
   CombinedPlot <- Plot1 + Plot2 + Plot3 + Plot4 + Plot5 + Plot6 + Plot7 + Plot8 +
