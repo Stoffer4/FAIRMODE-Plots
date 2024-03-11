@@ -60,7 +60,7 @@ ProgramInitialization <- function(){
   
 } # End "ProgramInitialization()"
 
-ReadDELTAData <- function(){
+ReadDELTAData <- function(UsePrint){
   
   ## Observed concentrations:
   
@@ -93,10 +93,13 @@ ReadDELTAData <- function(){
   nc_file <- nc_open("FAIRMODE_DELTA_Data/modeling/demo/2005_MOD1_TIME.cdf") # Open the file with modeled concentrations
   
   VarNames <- names(nc_file$var) # Get the variables of the netCDF file
-  print("Variables:")
-  print(VarNames)
-  print("Dimensions:")
-  print(names(nc_file$dim)) # Check the dimensions of the netCDF file
+  
+  if (UsePrint){
+    print("Variables:")
+    print(VarNames)
+    print("Dimensions:")
+    print(names(nc_file$dim)) # Check the dimensions of the netCDF file
+  }
   
   Att <- ncatt_get(nc_file, varid = 0) # Return global attributes of the netCDF file (this contains ASCII for column names)
   
@@ -142,7 +145,7 @@ ReadDELTAData <- function(){
 
 # Function to format the data. The function creates required columns, compute daily averages for PM2.5 and PM10, and filter for stations
 # with enough data coverage:
-FormatDELTAData <- function(Data, Pol){
+FormatDELTAData <- function(Data, Pol, UsePrint){
   
   # If the observed variable does not exist, terminate the program:
   if (!paste0("Obs_", Pol) %in% names(Data)){
@@ -189,21 +192,26 @@ FormatDELTAData <- function(Data, Pol){
   DataCoverage <- Data2 %>% group_by(Station) %>%
     summarize(DataCoverage = sum(!is.na(obs))/n()) %>% arrange(desc(DataCoverage)) # Data coverage
   
-  print("DataCoverage:")
-  print(DataCoverage)
-  
+  if (UsePrint){
+    print("DataCoverage:")
+    print(DataCoverage)
+  }
+
   StationsToKeep <<- DataCoverage %>% filter(DataCoverage > 0.75) %>% pull(Station) # Find stations which have more than 75% data coverage
-  print("Stations which have 75% data coverage in the given period:")
-  print(StationsToKeep)
   
+  if (UsePrint){
+    print("Stations which have 75% data coverage in the given period:")
+    print(StationsToKeep)
+  }
+
   Data2 <- Data2 %>% filter(Station %in% StationsToKeep) # Remove stations with less than 75% data coverage:
   
   NStations <<- length(unique(Data2$Station)) # Number of stations
   
   # Stop validation if less than 5 stations:
-  if(NStations < 5) {
+  if (NStations < 5){
     stop(paste0("Only ", NStations, "stations for validation. The minimum is 5. The code is terminated"))
-  } else {
+  } else if (UsePrint){
     print("")
     print("Enough stations to proceed validation")
   }

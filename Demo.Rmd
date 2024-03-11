@@ -1,0 +1,150 @@
+---
+title: "FAIRMODE-Plots"
+author: "Christopher Andersen"
+date: "2024-03-11"
+output: html_document
+---
+
+## Data
+
+`FAIRMODE-Plots` contains example data from the `DELTA` tool with observed and modeled concentrations. To create target diagrams and summary reports of this data, we first need to do a few preliminary steps.
+
+First, we source the file `FAIRMODE_Evaluation_functions.R` which contains the necessary functions to load and format the data and create the plots.
+We then execute the function `ProgramInitialization()` to load required `R` packages and define important parameters: 
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE}
+
+source("FAIRMODE_Evaluation_functions.R") 
+
+ProgramInitialization() 
+
+```
+
+Next, we read the `DELTA` tool demo time series data and display the first few rows of the data frame: 
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE}
+
+UsePrint <- FALSE 
+
+Data <- ReadDELTAData(UsePrint) 
+
+knitr::kable(head(Data))
+
+```
+
+## Target plots
+
+We observe that the data has an hourly time resolution. To proceed from here, we selects one of the four pollutants `NO2`, `O3`, `PM2.5`, or `PM10`, format the data, and compute the quality indicators (the target plot for `NO2` is based on the hourly data so no averages is performed for this pollutant): 
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "NO2" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol) 
+
+```
+
+We can now specify parameters for the target plot and create the plot, first for `NO2`:  
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+PlotPoint  <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 100 stations)
+OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
+OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
+SavePlot   <- FALSE 
+
+TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+```
+
+For `O3`, `FormatDELTAData()` also computes the daily maximum of 8H rolling averages: 
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "O3"
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+```
+
+For `PM2.5`, `FormatDELTAData()` also computes the daily averages:  
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "PM2.5" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+```
+
+For `PM10`, `FormatDELTAData()` also computes the daily averages:  
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "PM10" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+TargetPlot(StatRep, PlotPoint, NStations, OutputDir, OutputFile, SavePlot)
+```
+
+## Summary reports
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "NO2" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+PointSize <- 1.5 # Size of points in each subplot of the summary report
+
+SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)
+
+```
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "O3" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)
+
+```
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "PM2.5"
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)
+
+```
+
+```{r, echo = TRUE, results = 'asis', message = FALSE, warning = FALSE, fig.height = 6.5, fig.width = 6.5}
+
+Pol     <- "PM10" 
+
+Data2   <- FormatDELTAData(Data, Pol, UsePrint) 
+
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
+
+SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)
+
+```

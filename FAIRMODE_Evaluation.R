@@ -16,8 +16,10 @@ source("FAIRMODE_Evaluation_functions.R")
 
 ProgramInitialization() # Load packages, set correct working directory, and set a common plotting theme
 
+UsePrint <- TRUE # If TRUE: Print additional information when calling "ReadDELTAData()" and "FAIRMODEStat()"
+
 # Read DELTA tool demo time series data if necessary:
-Data <- ReadDELTAData()
+Data <- ReadDELTAData(UsePrint)
 
 ## Setup: ####
 
@@ -28,12 +30,12 @@ SavePlot   <- TRUE # TRUE: Saves the plots
 
 ## Format the data: 
 
-Data <- FormatDELTAData(Data, Pol) 
+Data2 <- FormatDELTAData(Data, Pol, UsePrint) 
 
 ## MQI and other statistics: ####
 
 # Return a report with FAIRMODE statics:
-StatRep <- FAIRMODEStat(Data, U_Par, Pol)
+StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
 ## Target plot: ####
 
