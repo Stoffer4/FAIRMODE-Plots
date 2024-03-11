@@ -22,7 +22,7 @@ ProgramInitialization <- function(){
       legend.box.background = element_rect(fill = alpha("white", 0.6), linewidth = 0.5),
       legend.background     = element_rect(fill = alpha("white", 0.6)),
       legend.key            = element_rect(fill = alpha("white", 0.6)),
-      legend.text.align     = 0, # Left align legend labels
+      legend.text           = element_text(hjust = 0), # Left align legend labels
       plot.margin           = margin(t = 2.5, r = 37.5, b = 2.5, l = 2.5, "mm"),
       legend.title          = element_blank()
     )
@@ -545,7 +545,7 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
     
     # Set a point in the dashed zone if required:
     if (nrow(DashedZoneR) > 0) {
-      Plot2 <- Plot2 + geom_point(aes(x = 100 + (50*max(Xrange) - 100)/2, y = 0), color = "blue", size = PointSize) # Right
+      Plot2 <- Plot2 + geom_point(aes(x = 100 + (50*max(Xrange2) - 100)/2, y = 0), color = "blue", size = PointSize) # Right
     }
     
   }
