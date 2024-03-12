@@ -317,8 +317,9 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
               MPI_BIAS   = BIAS/(U_Par_tmp$beta*RMS_U), # MPI for bias, FAIRMODE Eq. 16, without absolute value
               MPI_R      = (1 - R)/(0.5*U_Par_tmp$beta^2*RMS_U^2/(Sigma_obs*Sigma_mod)), # MPI for correlation, Janssen and Thunis (2022) Eq. 17
               MPI_Sigma  = (Sigma_mod - Sigma_obs)/(U_Par_tmp$beta*RMS_U), # MPI for standard deviation, Janssen and Thunis (2022) Eq. 18, without absolute value
-              MPI_Perc   = (M_Perc - O_Perc)/(U_Par_tmp$beta*U_O_Perc) # MPI for extreme events (exceedances), Janssen and Thunis (2022) Eq. 25 without absolute value
-    ) %>% left_join(Exceedances, by = "Station") # Join with "Exceedances" data.frame
+              MPI_Perc   = (M_Perc - O_Perc)/(U_Par_tmp$beta*U_O_Perc), # MPI for extreme events (exceedances), Janssen and Thunis (2022) Eq. 25 without absolute value
+    ) %>% left_join(Exceedances, by = "Station") %>% # Join with "Exceedances" data.frame
+          mutate(Country = str_sub(Station, start = 3, end = 4)) # Add a country column (only makes sense for DEHM data)
   
   NStations <- nrow(Data2) # Number of stations
   
@@ -329,7 +330,7 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
   
   # Compute MQI90 (the 90th percentile value of MQI) according to a linear interpolation (Janssen and Thunis (2022) Eq. (9)):
   S90   <- as.integer(NStations*0.9)
-  dist  <- (NStations*0.9 - S90)
+  dist  <- NStations*0.9 - S90
   
   MQIList <- sort(Data2 %>% pull(MQI)) # Ranked MQI list
   
@@ -356,7 +357,7 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
 } # End "FAIRMODEStatistics()"
 
 # Function to create a target plot:
-TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
+TargetPlot <- function(StatRep, Version, PlotPoint, OutputDir, OutputFile, SavePlot){
   
   if ((PlotPoint == 2) & (StatRep$MQI$NPoints > 60)) stop("Too many points for PlotPoint = 2! Set it equal to 1 instead")
   
@@ -392,7 +393,7 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
   
   ## Plot title:
   
-  # Choose the time resolution string: 
+  # Choose the time resolution string:
   if (Pol == "NO2"){
     ResString <- "hourly mean [\u03BCgm\u207B\u00B3]" # Header string for target plot
   } else if (Pol == "O3"){
@@ -401,7 +402,7 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
     ResString <- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
   }
   
-  PlotTitle <- paste0("Analysis - ", StatRep$MQI$NPoints, " stations\nSurface ", Pol, " ", ResString, " \n",
+  PlotTitle <- paste0(Version, " analysis - ", StatRep$MQI$NPoints, " stations\nSurface ", Pol, " ", ResString, " \n",
                       round_date(StatRep$MQI$StartDate, unit = "day"), " to ", round_date(StatRep$MQI$EndDate, unit = "day"))
   
   # Colour, depending on if the model is fit for purpose (green4) or not (red):
@@ -412,22 +413,19 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
   }
   
   # List of shapes for target plot:
-  ShapeList <- c("DELTA" = 0)
-  ShapeList <- c(ShapeList, setNames(1:length(unique(StatRep$Data$StationInfo)), unique(StatRep$Data$StationInfo)))
+  ShapeList <- setNames(0:length(unique(StatRep$Data$StationInfo)), unique(StatRep$Data$StationInfo))
   
   # Choose the point size according to "PlotPoint":
   if (PlotPoint == 1){
     PointSize <- 2.5
-  } else if (PlotPoint == 2){
+  } else if (PlotPoint %in% c(2, 3)){
     PointSize <- 2
   }
   
-  # Specify a unique combination of "fill" and "shape" (only used for PlotPoint == 1):
-  Fill  <- brewer.pal(12, "Paired")
-  Shape <- 21:25
-  
+  # Specify a unique combination of "fill" and "shape" (only used for PlotPoint == 2 and PlotPoint == 3):
+  Fill       <- brewer.pal(12, "Paired")
+  Shape      <- 21:25
   FillShapes <- expand_grid(Fill, Shape) # Determine all unique combinations
-  FillShapes <- slice_sample(FillShapes, n = StatRep$MQI$NPoints) # Choose the number of stations for each combinations
   
   ## Create the base target plot:
   Plot <- StatRep$Data %>% ggplot() +
@@ -446,15 +444,35 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
     ggtitle(PlotTitle) +
     coord_fixed(expand = FALSE, clip = "off")
   
-  # Add the point layer:
+  
+  
+  ## Add the point layer:
   if (PlotPoint == 1){
+    
     Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, shape = StationInfo), color = "blue", size = PointSize) +
       scale_shape_manual(values = ShapeList)
-  } else if (PlotPoint == 2) {
+    
+  } else if (PlotPoint == 2){
+    
+    set.seed(123) # Ensure that the same combination of "FillShapes" is always used
+    
+    FillShapes <- slice_sample(FillShapes, n = StatRep$MQI$NPoints) # Choose the number of stations for each combinations
+    
     Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, shape = Station, fill = Station), color = "black", size = PointSize) +
       scale_shape_manual(values = FillShapes$Shape) +
       scale_fill_manual(values = FillShapes$Fill)
-  }
+    
+  } else if (PlotPoint == 3){
+    
+    set.seed(123) # Ensure that the same combination of "FillShapes" is always used
+    
+    FillShapes <- slice_sample(FillShapes, n = length(unique(StatRep$Data$Country))) # Choose the number of stations for each combinations
+    
+    Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, color = Country, fill = Country, shape = Country), size = PointSize) +
+      scale_shape_manual(values = FillShapes$Shape) +
+      scale_fill_manual(values = FillShapes$Fill)
+    
+  } # End if statement over point layer
   
   # Add annotations:
   Plot <- Plot + annotate("text", x = -1.8, y = 0, label = "R") +
@@ -466,14 +484,16 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
   # Add a theme:
   if (PlotPoint == 1){
     Plot <- Plot + theme(legend.position = c(1, 1), legend.justification = c("right", "top"))
-  } else if (PlotPoint == 2){
-    # Change the legend:
-    Plot <- Plot + theme(legend.position = "bottom", legend.text = element_text(size = 4), legend.key.size = unit(0.1,"mm"),
+  } else if (PlotPoint == 2){ # Change the legend:
+    Plot <- Plot + theme(legend.position = "bottom", legend.text = element_text(size = 4), legend.key.size = unit(0.1, "mm"),
                          text = element_text(size = 10))
+  } else if (PlotPoint == 3){ # Change the legend:
+    Plot <- Plot + theme(legend.position = "bottom", legend.text = element_text(size = 8), legend.key.size = unit(0.1, "mm")) +
+      guides(col = guide_legend(ncol = 10), fill = guide_legend(ncol = 10), shape = guide_legend(ncol = 10))
   }
   
-  # Add stations name where MQI > 1 if "PlotPoint == 1":
-  if (PlotPoint == 1){
+  # Add stations name where MQI > 1 if "PlotPoint == 1" or "PlotPoint == 3":
+  if (PlotPoint %in% c(1, 3)){
     Plot <- Plot + geom_text(data = StationsMQI1, aes(x = x - 0.2, y = y, label = Stations), hjust = -0.05, size = 3)
   } else {
     Plot <- Plot + theme(plot.margin = margin(t = 2.5, r = 2.5, b = 2.5, l = 2.5, "mm"),)
@@ -483,9 +503,9 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
   
   # Save the plot:
   if (SavePlot){
-    # Name of output file: 
+    # Name of output file:
     if (OutputFile == FALSE){
-      FileName <- paste0(OutputDir, "TargetPlot_", Pol, ".png")
+      FileName <- paste0(OutputDir, "TargetPlot_", Version, "_", Pol, ".png")
     } else {
       FileName <- paste0(OutputDir, OutputFile)
     }
@@ -496,7 +516,7 @@ TargetPlot <- function(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot){
 } # End "TargetPlot()"
 
 # Function to create a summary report:
-SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot){
+SummaryReport <- function(StatRep, Pol, Version, PointSize, OutputDir, OutputFile, SavePlot){
   
   # Upper-right text box in report:
   if (StatRep$MQI$NPointsMQI90 == 1) {
@@ -782,8 +802,8 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
     ResString <- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
   }
   
-  ## Modified plot title for better justification:
-  PlotTitle <- paste0("               ", "Analysis - ", StatRep$MQI$NPoints,
+  # Modified plot title for better justification:
+  PlotTitle <- paste0("               ", Version, " analysis - ", StatRep$MQI$NPoints,
                       " stations\n               Surface ", StatRep$Parameters$Pol, " ", ResString, " \n               ",
                       round_date(StatRep$MQI$StartDate, unit = "day"), " to ", round_date(StatRep$MQI$EndDate, unit = "day"))
   
@@ -796,9 +816,9 @@ SummaryReport <- function(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePl
   
   # Save the combined plot (using cowplot):
   if (SavePlot){
-    # Name of output file: 
+    # Name of output file:
     if (OutputFile == FALSE){
-      FileName <- paste0(OutputDir, "SummaryReport_", Pol, ".png")
+      FileName <- paste0(OutputDir, "SummaryReport_", Version, "_", Pol, ".png")
     } else {
       FileName <- paste0(OutputDir, OutputFile)
     }

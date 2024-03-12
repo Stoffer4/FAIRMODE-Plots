@@ -26,7 +26,7 @@ Data <- ReadDELTAData(UsePrint)
 
 ## Setup: ####
 
-Pol        <- "PM2.5" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
+Pol        <- "NO2" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
@@ -52,12 +52,14 @@ StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
 
 ## Target plot: ####
 
-PlotPoint <- 1 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 100 stations)
+Version   <- "DELTA" # Write a version name to be used for target diagram title
+PlotPoint <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 100 stations)
 
-TargetPlot(StatRep, PlotPoint, OutputDir, OutputFile, SavePlot)
+TargetPlot(StatRep, Version, PlotPoint, OutputDir, OutputFile, SavePlot)
 
 ## Summary report: ####
 
+Version   <- "DELTA" # Write a version name to be used for target diagram title
 PointSize <- 1.5 # Size of points in each subplot of the summary report
 
-SummaryReport(StatRep, Pol, PointSize, OutputDir, OutputFile, SavePlot)
+SummaryReport(StatRep, Pol, Version, PointSize, OutputDir, OutputFile, SavePlot)
