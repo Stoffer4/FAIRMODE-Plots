@@ -13,7 +13,7 @@ The script `FAIRMODE_Evaluation.R` contains the typical workflow of creating tar
 
 # Examples
 
-Demo data with observed and modeled concentrations (from the `DELTA` tool) are available and showcased in the script `Demo.Rmd`. 
+Demo data (from the `DELTA` tool) with observed and modeled concentrations are available and showcased in the script `Demo.Rmd`. 
 
 <img style="float: left;" src="TargetPlot_O3.png">
 
