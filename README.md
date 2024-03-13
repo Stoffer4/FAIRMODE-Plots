@@ -5,7 +5,7 @@ An `R`-toolkit of functions for the evaluation of air quality models. The toolki
 
 Currently, it is not possible to create target diagrams and summary reports for forecast data but this will be added in the near future. 
 
-For `FAIRMODE-Plots` to work, a newer version of `R` is required (it has only been tested with version 4.3.3) and the packages `ggplot2`, `RColorBrewer`, `ggprism`, `patchwork`, `cowplot`, `dplyr`, `zoo`, `stringr`, `data.table`, `tidyr`, `lubridate`, `ncdf4`, and `DescTools`.
+For `FAIRMODE-Plots` to work, a newer version of `R` is required (it has only been tested with version 4.3.3), and the packages `ggplot2`, `RColorBrewer`, `ggprism`, `patchwork`, `cowplot`, `dplyr`, `zoo`, `stringr`, `data.table`, `tidyr`, `lubridate`, `ncdf4`, and `DescTools`.
 
 # Usage
 
