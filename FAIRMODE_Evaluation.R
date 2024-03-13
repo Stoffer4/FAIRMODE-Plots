@@ -2,8 +2,9 @@
 # FAIRMODE-Plots - Model Benchmark    #
 #*************************************#
 
-## Author: Christopher Andersen
-# Aarhus University, Department of Environmental Science 
+## Author:  Christopher Andersen
+## Address: Aarhus University, Department of Environmental Science
+## Main:    chan@envs.au.dk
 
 ## References:
 
