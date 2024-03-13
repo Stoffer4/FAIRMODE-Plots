@@ -4,7 +4,7 @@
 
 ## Author:  Christopher Andersen
 ## Address: Aarhus University, Department of Environmental Science
-## Main:    chan@envs.au.dk
+## E-mail:    chan@envs.au.dk
 
 ## References:
 
