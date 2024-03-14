@@ -118,7 +118,7 @@ ReadDELTAData <- function(UsePrint){
   for (ii in VarNames){ # Read data for each station
     
     Tmp <- ncvar_get(nc_file, varid = ii) # Obtain the 2D field of the given variable
-    Tmp <- data.frame(t(Tmp)) # Convert to data.frame
+    Tmp <- data.frame(t(Tmp)) # Convert to tibble
     
     colnames(Tmp) <- ColNames
     
@@ -214,7 +214,11 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
     print("Enough stations to proceed validation")
   }
   
-  return(Data2 %>% ungroup())
+  # Reorder columns: 
+  Data2 <- Data2 %>% relocate(date, Station, StationInfo, obs, mod) %>% 
+    ungroup()
+  
+  return(Data2)
   
 } # End "FormatData()"
 

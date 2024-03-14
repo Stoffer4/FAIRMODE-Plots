@@ -28,7 +28,7 @@ Data <- ReadDELTAData(UsePrint)
 
 ## Setup: ####
 
-Pol        <- "O3" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
+Pol        <- "PM10" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
@@ -41,16 +41,27 @@ Data2 <- FormatDELTAData(Data, Pol, UsePrint)
 # To create a target diagram and a summary report, start from a data set "Data2" with this overall structure (DELTA tool example).
 # The order of the column is not important:
 
-# NO2: 
+# NO2 (hourly averages): 
 
-# date      mod   obs             Station StationInfo
-# <POSc>    <num> <num>              <char>      <char>
-# 1: 2005-01-01 01:00:00 49.34645    67 MODENA_XX_SETTEMBRE       DELTA
-# 2: 2005-01-01 02:00:00 47.94696    67 MODENA_XX_SETTEMBRE       DELTA
-# 3: 2005-01-01 03:00:00 46.77987    61 MODENA_XX_SETTEMBRE       DELTA
-# 4: 2005-01-01 04:00:00 45.49080    55 MODENA_XX_SETTEMBRE       DELTA
-# 5: 2005-01-01 05:00:00 44.92197    57 MODENA_XX_SETTEMBRE       DELTA
-# 6: 2005-01-01 06:00:00 45.48383    61 MODENA_XX_SETTEMBRE       DELTA
+#    date                Station               StationInfo  obs  mod
+#    <POSc>              <char>                <char>      <num> <num>
+# 1: 2005-01-01 00:00:00 MODENA_XX_SETTEMBRE   DELTA        67   49.34645
+# 2: 2005-01-01 01:00:00 MODENA_XX_SETTEMBRE   DELTA        67   47.94696
+# 3: 2005-01-01 02:00:00 MODENA_XX_SETTEMBRE   DELTA        61   46.77987
+# 4: 2005-01-01 03:00:00 MODENA_XX_SETTEMBRE   DELTA        55   45.49080
+# 5: 2005-01-01 04:00:00 MODENA_XX_SETTEMBRE   DELTA        57   44.92197
+# 6: 2005-01-01 05:00:00 MODENA_XX_SETTEMBRE   DELTA        61   45.48383
+
+# PM2.5/PM10/O3 (daily averages):
+
+#   date                Station                StationInfo  obs   mod
+#   <dttm>              <chr>                  <chr>        <dbl> <dbl>
+# 1 2005-01-01 00:00:00 ALESSANDRIA_Liberta    DELTA        66.5  29.1
+# 2 2005-01-01 00:00:00 ALESSANDRIA_Nuova_orti DELTA        92    29.1
+# 3 2005-01-01 00:00:00 ASTI_DACQUISTO         DELTA        37    27.0
+# 4 2005-01-01 00:00:00 Alba                   DELTA        41    20.1
+# 5 2005-01-01 00:00:00 Arese                  DELTA       242    61.6
+# 6 2005-01-01 00:00:00 BIELLA_Sturzo          DELTA        38    13.9
 
 # Return a report with FAIRMODE statistics/quality indicators:
 StatRep <- FAIRMODEStat(Data2, U_Par, Pol)
