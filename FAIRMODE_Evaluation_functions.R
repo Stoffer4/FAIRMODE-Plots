@@ -83,6 +83,7 @@ ReadDELTAData <- function(UsePrint){
   
   # Format the observations (select required columns, etc):
   Obs <- Tmp2 %>% select(all_of(Columns)) %>%
+    mutate(hour = hour - 1) %>% # Format the hour column such that the first and last day contain the correct 24 hours 
     tidyr::unite("date", c(year, month, day, hour), sep = "_") %>%
     mutate(date = ymd_h(date)) %>%
     select(date, Station, c(NO2, O3, PM2.5, PM10)) %>% # Select important pollutants
@@ -104,7 +105,7 @@ ReadDELTAData <- function(UsePrint){
   Att <- ncatt_get(nc_file, varid = 0) # Return global attributes of the netCDF file (this contains ASCII for column names)
   
   # Create a vector of all date times:
-  DateVector <- seq.POSIXt(as.POSIXct(paste0(Att$Year, "-01-01 01:00:00"), tz = "UTC"), by = "hour", length.out = Att$EndHour + 1)
+  DateVector <- seq.POSIXt(as.POSIXct(paste0(Att$Year, "-01-01 00:00:00"), tz = "UTC"), by = "hour", length.out = Att$EndHour + 1)
   
   ColNamesASCII <- Att$Parameters # Obtain the column names in ASCII code
   ColNames      <- AscToChar(ColNamesASCII[-length(ColNamesASCII)]) # Return a character for each ASCII code (integer) supplied (we also
@@ -191,9 +192,9 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
     print(DataCoverage)
   }
 
-  # Find stations which have more than 75% data coverage: 
-  StationsToKeep <- DataCoverage %>% filter(DataCoverage > 0.75) %>% 
-    pull(Station) # Find stations which have more than 75% data coverage
+  # Find stations which have at least 75% data coverage: 
+  StationsToKeep <- DataCoverage %>% filter(DataCoverage >= 0.75) %>% 
+    pull(Station) 
   
   if (UsePrint){
     print("Stations which have 75% data coverage in the given period:")
@@ -221,13 +222,17 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
 DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date){
   
   # Function to determine the mean if at least 6 concentrations (out of 8) are non-NA:
-  mean2 <- function(x) {
+  mean2 <- function(x){
     if (sum(!is.na(x)) >= 6){ # If at least 6 concentrations are non-NA:
       mean(x, na.rm = TRUE)
     } else {
       NA
     }
   }
+  
+  # Function to compute the maximum of a vector. If all values are "NA", return "NA" instead of "inf" as is the usual behavior 
+  # of "max"(): 
+  max2 <- function(x) ifelse( !all(is.na(x)), max(x, na.rm = TRUE), NA) 
   
   # Determine the 8H backward rolling average of measured and modeled concentrations:
   Data2 <- Data %>% group_by(across(all_of(GroupedCols))) %>%
@@ -248,7 +253,7 @@ DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date){
   
   # Determine the maximum 8-hour mean for both measured and modeled concentrations for days with at least 75% observations:
   Data2 <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
-    summarize(obs = max(obs_8HourMean), mod = max(mod_8HourMean)) %>%
+    summarize(obs = max2(obs_8HourMean), mod = max2(mod_8HourMean)) %>%
     mutate(date = date2) %>%
     select(-date2)
   
