@@ -68,7 +68,8 @@ ReadDELTAData <- function(UsePrint){
   
   Columns <- c("year", "month", "day", "hour", "Station", "NO2", "O3", "PM10", "PM2.5") # Columns to keep
   
-  # Read all the observation files and create a column for each file, specifying its station:
+  # Read all the observation files (these do not contain data for the first hour (they start on hour 1 instead of 0)) 
+  # and create a column for each file, specifying its station:
   Tmp <- lapply(Files, function(x) {fread(x, fill = TRUE) %>%
       # The last column of each file will be NA due to the end-of-line ";". We therefore, only select columns where all values are not NA:
       select(where(~ !all(is.na(.)))) %>%
@@ -83,7 +84,6 @@ ReadDELTAData <- function(UsePrint){
   
   # Format the observations (select required columns, etc):
   Obs <- Tmp2 %>% select(all_of(Columns)) %>%
-    mutate(hour = hour - 1) %>% # Format the hour column such that the first and last day contain the correct 24 hours 
     tidyr::unite("date", c(year, month, day, hour), sep = "_") %>%
     mutate(date = ymd_h(date)) %>%
     select(date, Station, c(NO2, O3, PM2.5, PM10)) %>% # Select important pollutants
@@ -105,7 +105,7 @@ ReadDELTAData <- function(UsePrint){
   Att <- ncatt_get(nc_file, varid = 0) # Return global attributes of the netCDF file (this contains ASCII for column names)
   
   # Create a vector of all date times:
-  DateVector <- seq.POSIXt(as.POSIXct(paste0(Att$Year, "-01-01 00:00:00"), tz = "UTC"), by = "hour", length.out = Att$EndHour + 1)
+  DateVector <- seq.POSIXt(as.POSIXct(paste0(Att$Year, "-01-01 01:00:00"), tz = "UTC"), by = "hour", length.out = Att$EndHour)
   
   ColNamesASCII <- Att$Parameters # Obtain the column names in ASCII code
   ColNames      <- AscToChar(ColNamesASCII[-length(ColNamesASCII)]) # Return a character for each ASCII code (integer) supplied (we also
@@ -122,8 +122,9 @@ ReadDELTAData <- function(UsePrint){
     
     colnames(Tmp) <- ColNames
     
-    Mod[[cnt]] <- Tmp %>% mutate(Station = ii) %>% # Create a station column
-      mutate(date = DateVector) %>% # Create a date column
+    Mod[[cnt]] <- Tmp %>% 
+      slice(-1) %>% # Delete the first row (representing hour 0 for the first day, where no observations are available)
+      mutate(Station = ii, date = DateVector) %>% # Create a station and a date column
       select(date, Station, c(NO2, O3, PM2.5, PM10)) # Select only relevant pollutants
     
     cnt <- cnt + 1
@@ -165,9 +166,10 @@ FormatDELTAData <- function(Data, Pol, UsePrint){
       arrange(desc(DataCoverage))
     
     # Compute daily means of observed and modeled concentrations:
-    Data2 <- Data2 %>% mutate(date = floor_date(date, "day")) %>%
-      group_by(date, Station, StationInfo) %>%
-      summarize(obs = mean(obs, na.rm = TRUE), mod = mean(mod, na.rm = TRUE))
+    Data2 <- Data2[ , date := floor_date(date, "day")][, .(
+      obs = mean(obs, na.rm = TRUE),
+      mod = mean(mod, na.rm = TRUE)
+    ), by = .(date, Station, StationInfo)]
     
     # Join with coverage data and set "obs" for all days for each station with less than 75% observations to NA
     # (we still need to keep these records for later  computing the data coverage for the number of days in the period):
@@ -230,36 +232,34 @@ DailyMaxAvg8h <- function(Data, GroupedCols, mod, obs, date){
     if (sum(!is.na(x)) >= 6){ # If at least 6 concentrations are non-NA:
       mean(x, na.rm = TRUE)
     } else {
-      NA
+      NA_real_
     }
   }
   
   # Function to compute the maximum of a vector. If all values are "NA", return "NA" instead of "inf" as is the usual behavior 
   # of "max"(): 
-  max2 <- function(x) ifelse( !all(is.na(x)), max(x, na.rm = TRUE), NA) 
+  max2 <- function(x) ifelse( !all(is.na(x)), max(x, na.rm = TRUE), NA_real_) 
   
   # Determine the 8H backward rolling average of measured and modeled concentrations:
   Data2 <- Data %>% group_by(across(all_of(GroupedCols))) %>%
-    mutate(obs_8HourMean = rollapply({{obs}}, width = 8, FUN = mean2, partial = TRUE,
-                                     align = "right"),
-           mod_8HourMean = rollapply({{mod}}, width = 8, FUN = mean2, partial = TRUE,
-                                     align = "right"))
+    mutate(obs_8HourMean = rollapply({{obs}}, width = 8, FUN = mean2, partial = TRUE, align = "right"),
+           mod_8HourMean = rollapply({{mod}}, width = 8, FUN = mean2, partial = TRUE, align = "right")) %>%
+    ungroup()
+  
+  Data2 <- as.data.table(Data2)
   
   # Determine the data coverage of "obs_8HourMean" for each day:
-  DataCoverage <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
-    summarize(DataCoverage = sum(!is.na(obs_8HourMean))/n()) %>%
-    arrange(desc(DataCoverage))
+  DataCoverage <- Data2[ , .(DataCoverage = sum(!is.na(obs_8HourMean))/.N), 
+       by = c(GroupedCols, "date2")][order(-DataCoverage)]
   
   # Join with coverage data and set "obs_8HourMean" for all days for each station with less than 75% observations to NA
   # (we still need to keep these records for later computing the data coverage for the number of days in the period):
-  Data2 <- merge(Data2, DataCoverage, all.x = TRUE) %>%  # Merge "Data2" with "DataCoverage"
-    mutate(obs_8HourMean = ifelse(DataCoverage < 0.75, NA, obs_8HourMean))
+  Data2 <- merge(Data2, DataCoverage, all.x = TRUE)
+  Data2[ , obs_8HourMean := ifelse(DataCoverage < 0.75, NA_real_, obs_8HourMean)]
   
   # Determine the maximum 8-hour mean for both measured and modeled concentrations for days with at least 75% observations:
-  Data2 <- Data2 %>% group_by(across(c(all_of(GroupedCols), date2))) %>%
-    summarize(obs = max2(obs_8HourMean), mod = max2(mod_8HourMean)) %>%
-    mutate(date = date2) %>%
-    select(-date2)
+  Data2 <- Data2[ , .(obs = max2(obs_8HourMean), mod = max2(mod_8HourMean)), 
+                 by = c(GroupedCols, "date2")][ , date := date2][ , !"date2"]
   
   return(Data2)
   
@@ -272,19 +272,19 @@ FAIRMODEStat <- function(Data, U_Par, Pol){
   U_Par_tmp <- U_Par %>% filter(Pol == !!Pol)
   
   # Drop rows with missing observations:
-  Data <- Data %>% drop_na(obs)
+  Data <- Data %>% drop_na(obs, mod)
   
   ## Number of daily exceedances per station:
   
   if (Pol %in% c("NO2", "O3", "PM10")){ # Only exceedances for these pollutants
     
-    Exceedances <- Data %>%
-      mutate(date2       = as.Date(date), # Create a day columns
-             Exceedances = if_else(obs > Thresholds[ , Pol], 1, 0)) %>% # 1 if an exceedance is observed, 0 otherwise
-      group_by(Station, date2) %>%
-      summarize(NExceedances = if_else(sum(Exceedances) >= 1, 1, 0)) %>% # 1 if at least one exceedances took place during a day
-      group_by(Station) %>%
-      summarize(NExceedances = sum(NExceedances)) # Number of dates per station where an exceedance was observed
+    Data[ , date2 := as.Date(date)] # Create a day column
+    Data[ , Exceedances := ifelse(obs > Thresholds[ , Pol], 1, 0)] # 1 if an exceedance is observed, 0 otherwise
+    
+    # 1 if at least one exceedance took place during a day:
+    Exceedances <- Data[, .(NExceedances = ifelse(sum(Exceedances) >= 1, 1, 0)), by = .(Station, date2)]
+    # Number of dates per station where an exceedance was observed:
+    Exceedances <- Exceedances[ , .(NExceedances = sum(NExceedances)), by = Station]
     
   } else { # Exceedances are not shown for PM2.5 (see FAIRMODE p. 19)
     Exceedances <- data.frame(NExceedances = NA)
