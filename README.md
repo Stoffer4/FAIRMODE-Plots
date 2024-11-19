@@ -9,7 +9,7 @@ For `FAIRMODE-Plots` to work, a newer version of `R` is required (it has only be
 
 # Usage
 
-The script `FAIRMODE_Evaluation.R` contains the typical workflow of creating target diagrams and summary reports from data. The functions `ProgramInitialization()`, `ReadDELTAData()`,  `FormatDELTAData()`, `FAIRMODEStat()`, `SummaryReport()`, and `TargetPlot()` are defined in the script `FAIRMODE_Evaluation_functions.R`. 
+The script `FAIRMODE_Evaluation.R` contains the typical workflow of creating target diagrams and summary reports from data. The functions `ProgramInitialization()`, `ReadDELTAData()`,  `FormatDELTAData()`, `FAIRMODEAssStat()`, `TargetPlotAss()`, and `SummaryReportAss()` are defined in the script `FAIRMODE_Evaluation_functions.R`. 
 
 # Examples
 
