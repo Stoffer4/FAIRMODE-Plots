@@ -28,13 +28,13 @@ Data <- ReadDELTAData(UsePrint)
 
 ## Setup: ####
 
-Pol        <- "O3" # Pollutant. Choose between "NO2", "O3", "PM2.5", "PM10"
+Pol        <- c("NO2", "O3", "PM2.5", "PM10") # Scalar or vector of pollutants: "NO2", "O3", "PM2.5", "PM10"
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
 
 # Format DELTA tool example data (if required): 
-Data2 <- FormatDELTAData(Data, Pol, UsePrint) 
+Data2 <- FormatDELTAData(Data, PolList = Pol, UsePrint) 
 
 ## MQI and other statistics: ####
 
@@ -63,19 +63,22 @@ Data2 <- FormatDELTAData(Data, Pol, UsePrint)
 # 5 2005-01-01 00:00:00 Arese                  DELTA       242    61.6
 # 6 2005-01-01 00:00:00 BIELLA_Sturzo          DELTA        38    13.9
 
+StartDate    <- "2005-01-01" # Start date
+EndDate      <- "2006-01-01" # End date
+
 # Return a report with FAIRMODE statistics/quality indicators:
-StatRep <- FAIRMODEStat(Data = Data2, U_Par, Pol)
+StatRep <- FAIRMODEAssStat(Data = Data2, StartDate, EndDate, PolList = Pol)
 
 ## Target plot: ####
 
 Version   <- "DELTA" # Write a version name to be used for target diagram title
-PlotPoint <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 100 stations)
+PlotPoint <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 60 stations)
 
-TargetPlot(StatRep, Version, PlotPoint, OutputDir, OutputFile, SavePlot)
+TargetPlotAss(StatRepList = StatRep, StartDate, EndDate, PolList = Pol, Version, PlotPoint, OutputDir, OutputFile, SavePlot)
 
 ## Summary report: ####
 
 Version   <- "DELTA" # Write a version name to be used for target diagram title
 PointSize <- 1.5 # Size of points in each subplot of the summary report
 
-SummaryReport(StatRep, Pol, Version, PointSize, OutputDir, OutputFile, SavePlot)
+SummaryReportAss(StatRepList = StatRep, StartDate, EndDate, PolList = Pol, Version, PointSize, OutputDir, OutputFile, SavePlot)
