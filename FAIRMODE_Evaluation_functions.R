@@ -434,14 +434,50 @@ FAIRMODEAssStat <- function(Data, StartDate, EndDate, PolList){
   
 } # End "FAIRMODEAssStat()"
 
-# Function to create a target plot:
-TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, PlotPoint, OutputDir, OutputFile, SavePlot){
+# Function to create a target plot for assessment:
+TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Project, Version, FAIRMODEVersion, PlotPoint,
+                          PlotPoint2LegTextSize, OutputDir, ProjectName, SavePlot, Criteria = NA, PrintPlot = TRUE){
+  
+  ## Choose the point size and a named list of fills, colors, and shapes according to "PlotPoint".
+  # This calculation is placed before the pollutant loop such that each station or country is identifiable across the pollutants
+  if (PlotPoint == 1){ # For station types:
+    
+    PointSize <- 2.5
+    
+    # Relate the shapes according to the station types:
+    ShapeList <- setNames(0:length(unique(StatRep$Data$StationInfo)), unique(StatRep$Data$StationInfo))
+    
+  } else if (PlotPoint %in% c(2, 3)){ # For countries or stations:
+    
+    PointSize <- 2
+    
+    # Specify a unique combination of "fill", "color", and "shape":
+    Fill       <- brewer.pal(8, "Set3")[1:4] # Softer and more diverse fill colors
+    Color      <- brewer.pal(8, "Dark2")[1:3] # Darker, more muted colors for contrast
+    Shape      <- 21:25 # 5 "shapes"
+    FillShapes <- expand_grid(Fill, Color, Shape) # Determine all unique combinations
+    
+    set.seed(123)  # Ensure reproducibility
+    FillShapes <- FillShapes %>% slice_sample(n = 60) # Randomly sample all rows to get great colors
+    
+    # "Station" or "Country":
+    col <- if (PlotPoint == 2) "Station" else "Country"
+    
+    # All unique stations or countries across all pollutants:
+    UniqStCo <- unique(unlist(lapply(StatRepList, function(x) x$Data[[col]])))
+    
+    # Relate the fills, colors, and shapes to the stations (PlotPoint == 2) or countries (PlotPoint == 3):
+    FillList  <- setNames(FillShapes$Fill, UniqStCo)
+    ColorList <- setNames(FillShapes$Color, UniqStCo)
+    ShapeList <- setNames(FillShapes$Shape, UniqStCo)
+    
+  } # End if statement over "PlotPoint"
   
   # Loop over all specified pollutants:
   for (Pol in PolList){
     
     StatRep <- StatRepList[[Pol]] # Subset the statistical data for the given pollutant
-  
+    
     if ((PlotPoint == 2) & (StatRep$MQI$NPoints > 60)) stop("Too many points for PlotPoint = 2! Set it equal to 1 instead")
     
     ## Upper-left text box for plot:
@@ -458,7 +494,7 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
     
     PlotString <- paste0(StatRep$MQI$NPointsMQI90, " ", StationString1, " with MQI > 1 \n", "MQI90 = ", round(StatRep$MQI$MQI90, 3), "\n",
                          StatRep$MQI$NPointsY90, " ", StationString2, " with MQIYr > 1 \n", "Y90 = ", round(StatRep$MQI$Y90, 3))
-
+    
     ## Lower-left text box for plot:
     lab <- paste0("\u03B1 = ", StatRep$Parameters$alpha_H, "\n",
                   "\u03B2 = ", StatRep$Parameters$beta_H, "\n",
@@ -470,7 +506,7 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
     
     if (length(StationsMQI1) > 26) StationsMQI1 <- StationsMQI1[1:26] # If more than 26 of these stations, only show the first 26
     
-    StationsMQI1 <- c("Stations with MQI > 1:", StationsMQI1) # Append a header
+    StationsMQI1 <- c("Stations with MQI > 1:", as.character(StationsMQI1)) # Append a header
     
     StationsMQI1 <- data.frame(Stations = StationsMQI1, x = 2.2, y = seq(2, by = -0.15, length = length(StationsMQI1)))
     
@@ -485,43 +521,15 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
       ResString <- "daily mean [\u03BCgm\u207B\u00B3]" # Change target plot header string
     }
     
-    PlotTitle <- paste0(Version, " assessment - ", StatRep$MQI$NPoints, " stations\nSurface ", Pol, " ", ResString, " \n", 
-                        StartDate, " to ", EndDate)
-    
+    PlotTitle <- paste0(Version, " assessment - ", StatRep$GC, " - ", StatRep$MQI$NPoints, " stations\nSurface ", Pol, " ", ResString,
+                        " \n", StartDate, " to ", EndDate)
+    StartDate
     # Colour, depending on if the model is fit for purpose (green4) or not (red):
     if ((StatRep$MQI$MQI90 < 1) & (StatRep$MQI$Y90 < 1)){
       ColorPassed <- "green4"
     } else {
       ColorPassed <- "red"
     }
-    
-    # Choose the point size and a named list of "shapes" and "fills" according to "PlotPoint":
-    if (PlotPoint == 1){
-      
-      PointSize <- 2.5
-      
-      # Relate the shapes according to the stations:
-      ShapeList <- setNames(0:length(unique(StatRep$Data$StationInfo)), unique(StatRep$Data$StationInfo))
-      
-    } else if (PlotPoint == 2){
-      
-      PointSize <- 2
-      
-      # Specify a unique combination of "fill", "color", and "shape":
-      Fill       <- brewer.pal(8, "Set3")[1:4] # Softer and more diverse fill colors
-      Color      <- brewer.pal(8, "Dark2")[1:3] # Darker, more muted colors for contrast
-      Shape      <- 21:25 # 5 "shapes"
-      FillShapes <- expand_grid(Fill, Color, Shape) # Determine all unique combinations
-      
-      set.seed(123)  # Ensure reproducibility
-      FillShapes <- FillShapes %>% slice_sample(n = 60) # Randomly sample all rows to get great colours
-      
-      # Relate the fills and shapes to the stations (PlotPoint == 2) or countries (PlotPoint == 3):
-      FillList  <- setNames(FillShapes$Fill, unique(StatRep$Data$Station))
-      ColorList <- setNames(FillShapes$Color, unique(StatRep$Data$Station))
-      ShapeList <- setNames(FillShapes$Shape, unique(StatRep$Data$Station))
-      
-    } # End if statement over "PlotPoint"
     
     ## Create the base target plot:
     Plot <- StatRep$Data %>% ggplot() +
@@ -543,7 +551,7 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
     ## Add the point layer:
     if (PlotPoint == 1){
       
-      Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, shape = StationInfo), color = "blue", size = PointSize) +
+      Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, shape = StationInfo, color = StationInfo), size = PointSize) +
         scale_shape_manual(values = ShapeList)
       
     } else if (PlotPoint == 2){
@@ -555,7 +563,16 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
         scale_fill_manual(values = FillList, drop = FALSE) +
         scale_color_manual(values = ColorList, drop = FALSE)
       
-    } 
+    } else if (PlotPoint == 3){
+      
+      set.seed(123) # Ensure that the same combination of "FillShapes" is always used
+      
+      Plot <- Plot + geom_point(aes(x = CRMSE_Norm, y = BIAS_Norm, fill = Country, shape = Country, color = Country), size = PointSize) +
+        scale_shape_manual(values = ShapeList, drop = FALSE) +
+        scale_fill_manual(values = FillList, drop = FALSE) +
+        scale_color_manual(values = ColorList, drop = FALSE)
+      
+    } # End if statement over point layer
     
     # Add annotations:
     Plot <- Plot + annotate("text", x = -1.8, y = 0, label = "R") +
@@ -569,31 +586,54 @@ TargetPlotAss <- function(StatRepList, StartDate, EndDate, PolList, Version, Plo
       Plot <- Plot + theme(legend.position = "inside", legend.position.inside = c(1, 1), legend.justification = c("right", "top"))
     } else if (PlotPoint == 2){ # Change the legend:
       Plot <- Plot + theme(legend.position = "bottom", legend.key.size = unit(0.1, "mm"), text = element_text(size = 10),
-                           legend.text = element_text(size = 3.7, margin = margin(r = 2, t = 0, l = 2, b = 0))) +
+                           legend.text = element_text(size = PlotPoint2LegTextSize, margin = margin(r = 2, t = 0, l = 2, b = 0))) +
         guides(fill = guide_legend(ncol = 10), shape = guide_legend(ncol = 10))
-    } 
+    } else if (PlotPoint == 3){ # Change the legend:
+      Plot <- Plot + theme(legend.position = "bottom", legend.text = element_text(size = 8), legend.key.size = unit(0.1, "mm")) +
+        guides(col = guide_legend(ncol = 10), fill = guide_legend(ncol = 10), shape = guide_legend(ncol = 10))
+    }
     
     # Add stations name where MQI > 1 if "PlotPoint == 1" or "PlotPoint == 3":
-    if (PlotPoint == 1){
+    if (PlotPoint %in% c(1, 3)){
       Plot <- Plot + geom_text(data = StationsMQI1, aes(x = x - 0.2, y = y, label = Stations), hjust = -0.05, size = 3)
     } else {
       Plot <- Plot + theme(plot.margin = margin(t = 2.5, r = 2.5, b = 2.5, l = 2.5, "mm"))
     }
     
-    print(Plot)
+    if (PrintPlot) print(Plot)
     
     # Save the plot:
     if (SavePlot){
-      # Name of output file:
-      if (OutputFile == FALSE){
-        FileName <- paste0(OutputDir, "TargetPlot_", Version, "_", Pol, ".png")
-      } else {
-        FileName <- paste0(OutputDir, OutputFile)
+      
+      # Date strings for plot:
+      StartDateStr <- str_replace_all(StartDate, "-", "")
+      EndDateStr   <- str_replace_all(EndDate, "-", "")
+      
+      # Filename:
+      FileName <- paste0(OutputDir, "/", Project, "/", ProjectName, "/", FAIRMODEVersion, "/", StartDateStr, "_", EndDateStr,
+                         "/TargetPlot_", str_sub(FAIRMODEVersion, 1, 3), "_", Version, "_", StatRep$GC, "_", Pol, ".png")
+      
+      if (FAIRMODEVersion == "CriteriaTS"){
+        
+        # Change the criteria string to be put in the filename:
+        CriteriaName <- str_replace_all(Criteria, " ", "_")
+        CriteriaName <- str_replace(CriteriaName, ">=", "ge")
+        CriteriaName <- str_replace(CriteriaName, "<=", "le")
+        CriteriaName <- str_replace(CriteriaName, ">", "gt")
+        CriteriaName <- str_replace(CriteriaName, "<", "lt")
+        CriteriaName <- str_replace(CriteriaName, "==", "eq")
+        CriteriaName <- str_replace(CriteriaName, "!=", "new")
+        
+        FileName <- paste0(OutputDir, "/", Project, "/", ProjectName, "/Assessment/", StartDateStr, "_", EndDateStr,
+                           "/MQICriteria/TargetPlot_Ass_", str_remove_all(Version, "\\."), "_", StatRep$GC, "_", Pol, "_", CriteriaName,
+                           ".png")
       }
+      
       print(paste0("Writing the file: ", FileName))
-      ggsave(Plot, filename = FileName, height = 6.5, width = 6.5, unit = "in")
+      ggsave(Plot, filename = FileName, height = 6.5, width = 6.5, unit = "in", create.dir = TRUE)
+      
     } # End if statement over "SavePlot"
-  
+    
   } # End loop over pollutants
   
 } # End "TargetPlotAss()"

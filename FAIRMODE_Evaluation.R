@@ -32,6 +32,9 @@ Pol        <- c("NO2", "O3", "PM2.5", "PM10") # Scalar or vector of pollutants: 
 OutputDir  <- "FAIRMODE_Evaluation_Plots/" # Name of the relative output directory of plots to be saved
 OutputFile <- FALSE # If not FALSE, "OutputFile" overwrites the default file name. If FALSE, the default file name is used
 SavePlot   <- TRUE # TRUE: Saves the plots
+Project    <- "NORDSMOKE"
+ProjectName <- "NORDSMOKE" # Name of the project to be used in the plots
+VersionName  <- "UBM"
 
 # Format DELTA tool example data (if required): 
 Data2 <- FormatDELTAData(Data, PolList = Pol, UsePrint) 
@@ -72,9 +75,10 @@ StatRep <- FAIRMODEAssStat(Data = Data2, StartDate, EndDate, PolList = Pol)
 ## Target plot: ####
 
 Version   <- "DELTA" # Write a version name to be used for target diagram title
-PlotPoint <- 2 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 60 stations)
+PlotPoint <- 3 # 1: Standard plot. 2: Each station point is uniquely identifiable (only applicable for fewer than app. 60 stations)
 
-TargetPlotAss(StatRepList = StatRep, StartDate, EndDate, PolList = Pol, Version, PlotPoint, OutputDir, OutputFile, SavePlot)
+TargetPlotAss(StatRep, StartDate, EndDate, PolList = Pol, Project, Version = VersionName, FAIRMODEVersion = "Assessment", PlotPoint,
+              PlotPoint2LegTextSize, OutputDir, ProjectName, SavePlot = TRUE)
 
 ## Summary report: ####
 
